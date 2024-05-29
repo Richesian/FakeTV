@@ -3,6 +3,7 @@ package faketv.util;
 
 import java.io.File;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 
 
@@ -18,11 +19,10 @@ public class ShellCommands {
 	private InputStream error_stream = null;
 	private InputStream input_stream = null;
 	private Process proc = null;
+	private OutputStream output_stream = null;
 	
 	
-	public void kill() {
-		proc.destroy();
-	}
+	
 	
 	public int execute(String... cmd) {
 		ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -33,6 +33,7 @@ public class ShellCommands {
 		}
 		input_stream = proc.getInputStream();
 		error_stream = proc.getErrorStream();
+
 		
 		
 		while (proc.isAlive()) {
@@ -50,6 +51,10 @@ public class ShellCommands {
 				}
 			}}catch(Exception es2){}
 		}
+		try{input_stream.close();}catch(Exception e){}
+		try{output_stream.close();}catch(Exception e){}
+		
+		
 		return 0;
 	}
 	
