@@ -68,6 +68,7 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 	private boolean get_random_program = false;
 	private boolean no_program_change = false;
 	private boolean was_killed = false;
+	private boolean restart_episode = false;
 	
 	
 	
@@ -248,6 +249,9 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 			} else if (get_random_program) {
 				get_random_program = false;
 				show = ChannelDefinition.getRandomShow(true);
+			} else if (restart_episode) {
+				restart_episode = false;
+				show.start_time = System.currentTimeMillis();
 			} else {
 				show = this.GetEpisode();
 			}
@@ -395,6 +399,12 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 			return false;
 		} else if (k==40) { //Arrow down
 			no_program_change = true;
+			was_killed = true;
+			this.incrementChannel(-1);
+			sendKey(83);
+			return false;
+		} else if (k==32) { //Space - restart episode
+			restart_episode = true;
 			was_killed = true;
 			this.incrementChannel(-1);
 			sendKey(83);

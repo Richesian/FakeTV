@@ -10,10 +10,14 @@ import faketv.db.DBConnection;
 public class ChannelDefinition {
 
 	public int id;
+
 	public String title;
 	public String descr;
 	public Show[] shows;
 	public int show_index = 0;
+	public boolean is_derived;
+	public int wildcard_id;
+	private String channel_list;
 	
 	public static ChannelDefinition[] getChannelDefinitions() {
 		ArrayList<ChannelDefinition> channel_definitions = new ArrayList<ChannelDefinition>();
@@ -34,6 +38,30 @@ public class ChannelDefinition {
 			for(ChannelDefinition c : channel_definitions) {
 				c.shows = Show.getShows(c.id);
 			}
+			
+			//Load up wildcard channels
+			int virtual_number = 5000;
+			db.executeQuery("select id, title, descr, channel_list from wildcard_channels order by rand()");
+			while(db.rs.next()) {
+				ChannelDefinition c = new ChannelDefinition();
+				c.id = virtual_number;
+				c.wildcard_id = db.rs.getInt("id");
+				c.title = db.rs.getString("title");
+				c.descr = db.rs.getString("descr");
+				c.channel_list = db.rs.getString("channel_list");
+				c.is_derived = true;
+				channel_definitions.add(c);
+				virtual_number++;
+			}
+			
+			for(ChannelDefinition c : channel_definitions) {
+				if (!c.is_derived){continue;}
+				c.shows = Show.getShows(c.channel_list);
+			}
+			
+					
+			
+			
 			
 		} catch(Exception e) {
 			throw new RuntimeException(e);
@@ -122,12 +150,17 @@ public class ChannelDefinition {
 		    }
 	    	System.out.println("Have shows: "+shows.length);
 		    
-		    //Get the show from our randomly ordered round robin list
-		    Show s = this.shows[show_index];
+	    	
+	    	Show s = this.shows[show_index];
 		    show_index++;
 		    if (show_index>=this.shows.length) {
 		    	show_index=0;
 		    }
+	    	
+
+		    
+		    
+		    
 	
 		    
 		    //Get a count of all the episodes
