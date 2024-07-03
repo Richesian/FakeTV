@@ -70,7 +70,7 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 	private boolean was_killed = false;
 	private boolean restart_episode = false;
 	
-	
+	private boolean use_vlc = false;
 	
 	private Episode[] channels;
     
@@ -93,8 +93,8 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 	}
 	
 	private void sendKey(int keycode) {
-	    HWND handler = User32.INSTANCE.FindWindow(null, "VLC");
-	  //  User32.INSTANCE.SetForegroundWindow( handler );
+		System.out.println("KEycode:"+ keycode);
+		
 	    
 	       WinUser.INPUT input = new WinUser.INPUT(  );
 
@@ -107,26 +107,13 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
            // Press "a"
            input.input.ki.wVk = new WinDef.WORD(keycode); 
            input.input.ki.dwFlags = new WinDef.DWORD( 0 );  // keydown
-
-           
-           
            User32.INSTANCE.SendInput( new WinDef.DWORD( 1 ), ( WinUser.INPUT[] ) input.toArray( 1 ), input.size() );
 
            // Release "a"
            input.input.ki.wVk = new WinDef.WORD(keycode); 
            input.input.ki.dwFlags = new WinDef.DWORD( 2 );  // keyup
-
            User32.INSTANCE.SendInput( new WinDef.DWORD( 1 ), ( WinUser.INPUT[] ) input.toArray( 1 ), input.size() );
 
-	    
-	    
-	   // System.out.println("Handler: "+handler);
-	   // System.out.println("Sending key: "+keycode);
-	    // 0x0100 WM_KEYDOWN
-//	    User32.INSTANCE.SendMessage(handler, 0x0104, new WinDef.WPARAM(keycode), new WinDef.LPARAM(0));
-
-	    // recommended for dedection
-		
 		
 	}
 	
@@ -238,7 +225,10 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 	    
 		
 		String ffplay = Settings.getFFPlayPath();
+		String vlc = Settings.getVLCPath();
 
+
+		
 		
 		Episode show = null;
 		while (true) {
@@ -249,64 +239,112 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 			} else if (get_random_program) {
 				get_random_program = false;
 				show = ChannelDefinition.getRandomShow(true);
+				if (show==null) {
+					this.incrementChannel(1);
+					continue;
+				}
 			} else if (restart_episode) {
 				restart_episode = false;
+				if (show==null) {
+					this.incrementChannel(1);
+					continue;
+				}
 				show.start_time = System.currentTimeMillis();
 			} else {
 				show = this.GetEpisode();
+				if (show==null) {
+					this.incrementChannel(1);
+					continue;
+				}
 			}
-			
-			ArrayList<String> cmd = new ArrayList<String>();
-			cmd.add(ffplay);
-			cmd.add("--start-time");
-			cmd.add(show.getProgressTimeString());
-			cmd.add("--video-on-top");
-			cmd.add("--play-and-exit");
-			cmd.add("--fullscreen");
-			cmd.add("--quiet");
-			cmd.add("--dummy-quiet");
-			cmd.add("-I");
-			cmd.add("dummy");
-			
-			cmd.add(show.getFilename());
-			
-		//	cmd.add("-vf");
-		
-			//Need to figure out the current seconds
-			int start_seconds = show.getStartSeconds()-30;
-			int end_seconds = start_seconds+31;
-			
-			
-			ChannelDefinition def = channel_definitions[current_channel];
-			String text = ""+def.id+" - "+def.title;
-			
-			
-			//text = text.replace("\"", "\\\"");
-			cmd.add("--sub-source=marq{marquee='"+text+"',position=9,color=0xFFFF00,size=40}");
-			
-			
-//			StringBuilder vf = new StringBuilder();
-	//		cmd.add("-vf");
-		//	vf.append("drawtext=boxcolor=black:boxborderw=10:borderw=15:fontfile=c\\\\:/Windows/fonts/calibri.ttf:fontsize=(h/15):fontcolor=cyan:x=10:y=10:text="+text+":enable='between(t,"+start_seconds+","+end_seconds+")'");
 
-			if (show.is_interlaced) {
-				cmd.add("--deinterlace=1");
-				cmd.add("--deinterlace-mode=yadif2x");
+			use_vlc = show.use_vlc;
+			
+			
+			System.out.println("Show is using vlc: "+use_vlc);
+			
+
+			ChannelDefinition def = channel_definitions[current_channel];
+			
+			if (use_vlc) {
+				ArrayList<String> cmd = new ArrayList<String>();
+				cmd.add(vlc);
+				cmd.add("--start-time");
+				cmd.add(show.getProgressTimeString());
+				cmd.add("--video-on-top");
+				cmd.add("--play-and-exit");
+				cmd.add("--fullscreen");
+				cmd.add("--quiet");
+				cmd.add("--dummy-quiet");
+				cmd.add("-I");
+				cmd.add("dummy");
+				cmd.add(show.getFilename());
+				String text = ""+def.id+" - "+def.title;
+				//text = text.replace("\"", "\\\"");
+				cmd.add("--sub-source=marq{marquee='"+text+"',position=9,color=0xFFFF00,size=40}");
 				
-//				vf.append(",yadif=1");
+				
+		//			StringBuilder vf = new StringBuilder();
+		//		cmd.add("-vf");
+			//	vf.append("drawtext=boxcolor=black:boxborderw=10:borderw=15:fontfile=c\\\\:/Windows/fonts/calibri.ttf:fontsize=(h/15):fontcolor=cyan:x=10:y=10:text="+text+":enable='between(t,"+start_seconds+","+end_seconds+")'");
+		
+				if (show.is_interlaced) {
+					cmd.add("--deinterlace=1");
+					cmd.add("--deinterlace-mode=yadif2x");
+					
+		//				vf.append(",yadif=1");
+				}
+				String[] cmd_args = cmd.toArray(new String[cmd.size()]);
+				
+				this.was_killed = false;
+				//rvu.sc.execute("j:\\ffplay.exe", "-ss",""+show.getProgressTimeString(),"-alwaysontop","-autoexit","-fs",show.filename);
+				this.sc.execute(cmd_args);
+			
+			} else {
+				ArrayList<String> cmd = new ArrayList<String>();
+				cmd.add(ffplay);
+				cmd.add("-ss");
+				cmd.add(show.getProgressTimeString());
+				cmd.add("-i");
+				cmd.add(show.getFilename());
+				cmd.add("-autoexit");
+				cmd.add("-alwaysontop");
+				cmd.add("-fs");
+				
+				String text = ""+def.id+" - "+def.title;
+				//text = text.replace("\"", "\\\"");
+				
+				
+				
+				int start_seconds = show.getStartSeconds();
+				int end_seconds = start_seconds+5;
+				
+				StringBuilder vf = new StringBuilder();
+				cmd.add("-vf");
+				vf.append("drawtext=boxcolor=black:boxborderw=10:borderw=15:fontfile=c\\\\:/Windows/fonts/calibri.ttf:fontsize=(h/15):fontcolor=cyan:x=10:y=10:text="+text+":enable='between(t,"+start_seconds+","+end_seconds+")'");
+		
+				if (show.is_interlaced) {
+						vf.append(",yadif=1");
+				}
+				cmd.add(vf.toString());
+				
+				if (show.audio_track!=0) {
+				cmd.add("-ast");
+				cmd.add(""+(show.audio_track+1));
+				}
+				
+				
+				String[] cmd_args = cmd.toArray(new String[cmd.size()]);
+				
+				this.was_killed = false;
+				//rvu.sc.execute("j:\\ffplay.exe", "-ss",""+show.getProgressTimeString(),"-alwaysontop","-autoexit","-fs",show.filename);
+				this.sc.execute(cmd_args);
+			
+				
 			}
-//			cmd.add("\""+vf.toString()+"\"");
-			
-			//drawtext=boxcolor=black:boxborderw=10:borderw=15:fontfile=c\\\\:/Windows/fonts/calibri.ttf:fontsize=(h/15):fontcolor=cyan:x=10:y=10:text="+text+":enable='between(t,"+start_seconds+","+end_seconds+")'\"");
-			
-			System.out.println("Playing "+show.getFilename());
 			
 			
-			String[] cmd_args = cmd.toArray(new String[cmd.size()]);
 			
-			this.was_killed = false;
-			//rvu.sc.execute("j:\\ffplay.exe", "-ss",""+show.getProgressTimeString(),"-alwaysontop","-autoexit","-fs",show.filename);
-			this.sc.execute(cmd_args);
 			
 			if (!is_running) {
 				break;
@@ -339,6 +377,16 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 	}
 	
 	
+	
+	
+	private void exitVideoPlayer() {
+		if (use_vlc) {
+			sendKey(83); 
+		} else {
+			this.sc.kill();
+		}
+	}
+	
 	/**
 	 * 
 	 * @param k
@@ -346,12 +394,18 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 	 */
 	private boolean handleKeyDown(int k) {
 		System.out.println("Key: "+k);
-		if (k==27) { //Escape
+		
+		if (k==65) { //A Audio track increment
+			channels[current_channel].incrementAudioTrack();
+			was_killed = true;
+			exitVideoPlayer();
+			return false;
+		} else if (k==27) { //Escape
 			System.out.println("Escape hit");
 			is_running = false;
 			was_killed = true;
 //			sc.kill();
-			sendKey(83); //was 113
+			exitVideoPlayer(); //was 113
 		} else if (k==82) { //r
 			was_killed = true;
 
@@ -359,20 +413,20 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 			get_random_program = true;
 			
 			//sc.kill();
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 			
 		} else if (k==221) {//square bracket left ]
 			this.incrementChannel(1);
 			was_killed = true;
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 
 			//sc.kill();
 		} else if (k==219) { //square bracked left [
 			this.incrementChannel(-1);
 			was_killed = true;
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 
 			//sc.kill();
@@ -382,32 +436,40 @@ public class FakeTV extends JPanel implements WindowListener,WindowFocusListener
 			} catch(Exception e){}
 			was_killed = true;
 //			sc.kill();
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 
-		} else if (k==190) { //period . This means assign the current show to this channel at all times
+		} else if (k==86) { //v
+			
+			System.out.println("Toggling VLC");
+			channels[current_channel].toggleVLC();
+			was_killed = true;
+			exitVideoPlayer();
+			return false;
+		}
+		else if (k==190) { //period . This means assign the current show to this channel at all times
 			assign_show_to_this_channel = true;
 			was_killed = true;
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 
 		} else if (k==38) { //Arrow up
 			no_program_change = true;
 			was_killed = true;
 			this.incrementChannel(1);
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 		} else if (k==40) { //Arrow down
 			no_program_change = true;
 			was_killed = true;
 			this.incrementChannel(-1);
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 		} else if (k==32) { //Space - restart episode
 			restart_episode = true;
 			was_killed = true;
 			this.incrementChannel(-1);
-			sendKey(83);
+			exitVideoPlayer();
 			return false;
 		}
 		return true;

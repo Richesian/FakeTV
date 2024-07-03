@@ -9,12 +9,45 @@ public class Episode {
 	public double duration_seconds;
 	public boolean is_interlaced;
 	public boolean is_television;
+	public boolean use_vlc = false;
+	public int audio_track = 0;
+	
 	public int id = -1;
 	
 	public long getEndTime() {
 		long show_end_milliseconds = (long)(start_time+(duration_seconds*1000));
 		return show_end_milliseconds;
 	}
+	
+	
+	
+	
+	
+	
+	
+	public void loadDetails() {
+		try {
+			DBConnection db = new DBConnection("faketv");
+			db.executeQuery("select id, filename, duration_seconds, is_television, is_interlaced, use_vlc, audio_track from videos where id = ?",id);
+			while(db.rs.next()) {
+				
+				filename = db.rs.getString("filename");
+				setFilename(filename);
+				start_time = System.currentTimeMillis();
+				duration_seconds = db.rs.getDouble("duration_seconds");
+				is_interlaced = (db.rs.getInt("is_interlaced") > 0);
+				is_television = (db.rs.getInt("is_television") > 0);
+				audio_track = db.rs.getInt("audio_track");
+				
+				use_vlc = (db.rs.getInt("use_vlc") > 0);
+			}
+		} catch(Exception e) {
+			
+			throw new RuntimeException(e);
+		}
+	}
+	
+	
 	
 	public int getShowID() {
 		try {
@@ -27,7 +60,11 @@ public class Episode {
 			}
 			if (show_id==-1) {
 				show_id = db.executeUpdate("insert into shows (folder) values(?)",folder_name);
-			}
+			} 
+			
+			
+			System.out.println("Show ID for "+folder_name+" assignment is "+show_id);
+			
 			return show_id;
 		} catch(Exception e) {
 			throw new RuntimeException(e);
@@ -42,6 +79,7 @@ public class Episode {
 	
 	
 	public void setFilename(String s) {
+		s = s.replace("/","\\");
 		this.filename = s;
 	}
 	
@@ -71,14 +109,40 @@ public class Episode {
 		return (int)(elapsed_milliseconds/1000);
 	}
 	
+	
+	public void toggleVLC() {
+		DBConnection db = new DBConnection("faketv");
+		
+		
+		if (use_vlc) {
+			System.out.println("Setting VLC to off");
+			db.executeUpdate("update videos set use_vlc = 0 where id = ?",id);
+		} else {
+			System.out.println("Setting VLC to on");
+
+			db.executeUpdate("update videos set use_vlc = 1 where id = ?",id);
+		}
+		use_vlc = !use_vlc;
+	}
+	
 	public void toggleInterlaced() {
 		DBConnection db = new DBConnection("faketv");
 		if (is_interlaced) {
-			db.executeUpdate("update faketv set is_interlaced = 0 where id = ?",id);
+			db.executeUpdate("update videos set is_interlaced = 0 where id = ?",id);
 		} else {
-			db.executeUpdate("update faketv set is_interlaced = 1 where id = ?",id);
+			db.executeUpdate("update videos set is_interlaced = 1 where id = ?",id);
 		}
 		is_interlaced = !is_interlaced;
+	}
+	
+	public void incrementAudioTrack() {
+		DBConnection db = new DBConnection("faketv");
+		audio_track++;
+		if (audio_track>=4) {
+			audio_track =0;
+		}
+		db.executeUpdate("update videos set audio_track = ? where id = ?",audio_track, id);
+		
 	}
 	
 	

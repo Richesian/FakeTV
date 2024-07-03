@@ -24,6 +24,12 @@ public class ShellCommands {
 	
 	
 	
+	public void kill() {
+		try{input_stream.close();}catch(Exception e){}
+		try{output_stream.close();}catch(Exception e){}
+		try{proc.destroyForcibly();}catch(Exception e){}
+	}
+	
 	public int execute(String... cmd) {
 		ProcessBuilder pb = new ProcessBuilder(cmd);
 		try {

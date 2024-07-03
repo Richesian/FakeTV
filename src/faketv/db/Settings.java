@@ -29,5 +29,10 @@ public class Settings {
 		return props.getProperty("ffplay_path");
 	}
 	
+	public static String getVLCPath() {
+		loadProperties();
+		return props.getProperty("vlc_path");
+	}
+	
 	
 }
